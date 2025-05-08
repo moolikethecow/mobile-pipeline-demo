@@ -15,8 +15,7 @@ executors:
 
 jobs:
   shared_build:
-    docker:
-      - image: cimg/openjdk:17.0
+    executor: android-docker
     steps:
       - checkout
       - android/restore_gradle_cache:
