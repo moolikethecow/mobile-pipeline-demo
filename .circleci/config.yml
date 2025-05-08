@@ -68,6 +68,10 @@ jobs:
       - attach_workspace:
           at: .
       - run:
+          name: Build Kotlin framework for iOS
+          command: |
+            ./gradlew :shared:embedAndSignAppleFrameworkForXcode
+      - run:
           name: Install dependencies
           command: |
             brew install cocoapods || true
@@ -86,7 +90,9 @@ jobs:
             xcodebuild test -workspace iosApp/iosApp.xcodeproj/project.xcworkspace \
               -scheme iosApp \
               -sdk iphonesimulator \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2'
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
+              -destination-timeout 60 \
+              IPHONEOS_DEPLOYMENT_TARGET=14.0
       - store_artifacts:
           path: iosApp/iosApp/build
           destination: ios-outputs
