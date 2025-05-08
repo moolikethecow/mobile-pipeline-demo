@@ -15,17 +15,21 @@ executors:
 
 jobs:
   shared_build:
-    executor: android-docker
+    executor: ios-executor
     steps:
       - checkout
-      - android/restore_gradle_cache:
-          cache_prefix: v1-shared
       - run:
-          name: Build shared module for Android
+          name: Set up Java
           command: |
-            ./gradlew :shared:build :shared:test -x :shared:iosArm64Test -x :shared:iosX64Test -x :shared:iosSimulatorArm64Test
+            java -version
+      - android/restore_gradle_cache:
+          cache_prefix: v2-shared
+      - run:
+          name: Build shared module for all platforms
+          command: |
+            ./gradlew :shared:build :shared:test
       - android/save_gradle_cache:
-          cache_prefix: v1-shared
+          cache_prefix: v2-shared
       - store_artifacts:
           path: shared/build/reports
           destination: shared-module-reports
@@ -46,13 +50,13 @@ jobs:
           at: .
       - android/restore_build_cache
       - android/restore_gradle_cache:
-          cache_prefix: v1-android
+          cache_prefix: v2-android
       - run:
           name: Build and test Android app
           command: ./gradlew androidApp:assembleDebug androidApp:testDebugUnitTest
       - android/save_build_cache
       - android/save_gradle_cache:
-          cache_prefix: v1-android
+          cache_prefix: v2-android
       - store_artifacts:
           path: androidApp/build/reports/tests
           destination: android-test-reports
@@ -68,10 +72,6 @@ jobs:
       - checkout
       - attach_workspace:
           at: .
-      - run:
-          name: Build Kotlin framework for iOS
-          command: |
-            ./gradlew :shared:compileKotlinIosArm64 :shared:compileKotlinIosX64 :shared:compileKotlinIosSimulatorArm64
       - run:
           name: Install dependencies
           command: |
