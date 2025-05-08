@@ -16,34 +16,23 @@ executors:
 jobs:
   shared_build:
     executor: ios-executor
-    environment:
-      ANDROID_HOME: /Users/distiller/Library/Android/sdk
     steps:
       - checkout
       - run:
           name: Set up Java
           command: |
             java -version
-      - run:
-          name: Set up Android SDK
-          command: |
-            mkdir -p $ANDROID_HOME
-            curl -o android-tools.zip "https://dl.google.com/android/repository/commandlinetools-mac-10406996_latest.zip"
-            unzip android-tools.zip -d $ANDROID_HOME/
-            mkdir -p $ANDROID_HOME/cmdline-tools/latest
-            mv $ANDROID_HOME/cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/ || true
-            export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-            echo 'export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH' >> $BASH_ENV
-            yes | sdkmanager --licenses
-            sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+      # Use built-in Android orb commands for SDK setup
+      - android/setup-android
+      - android/accept-licenses
       - android/restore_gradle_cache:
-          cache_prefix: v3-shared
+          cache_prefix: v4-shared
       - run:
           name: Build shared module for all platforms
           command: |
             ./gradlew :shared:build :shared:test
       - android/save_gradle_cache:
-          cache_prefix: v3-shared
+          cache_prefix: v4-shared
       - store_artifacts:
           path: shared/build/reports
           destination: shared-module-reports
@@ -64,13 +53,13 @@ jobs:
           at: .
       - android/restore_build_cache
       - android/restore_gradle_cache:
-          cache_prefix: v3-android
+          cache_prefix: v4-android
       - run:
           name: Build and test Android app
           command: ./gradlew androidApp:assembleDebug androidApp:testDebugUnitTest
       - android/save_build_cache
       - android/save_gradle_cache:
-          cache_prefix: v3-android
+          cache_prefix: v4-android
       - store_artifacts:
           path: androidApp/build/reports/tests
           destination: android-test-reports
