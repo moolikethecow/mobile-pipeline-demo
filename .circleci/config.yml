@@ -22,17 +22,18 @@ jobs:
           name: Set up Java
           command: |
             java -version
-      # Use built-in Android orb commands for SDK setup
-      - android/setup-android
-      - android/accept-licenses
+      # Use built-in Android orb commands for SDK and license setup
+      - android/accept_licenses
+      - android/install_ndk:
+          version: "28.1.13356709"
       - android/restore_gradle_cache:
-          cache_prefix: v4-shared
+          cache_prefix: v5-shared
       - run:
           name: Build shared module for all platforms
           command: |
             ./gradlew :shared:build :shared:test
       - android/save_gradle_cache:
-          cache_prefix: v4-shared
+          cache_prefix: v5-shared
       - store_artifacts:
           path: shared/build/reports
           destination: shared-module-reports
@@ -53,13 +54,13 @@ jobs:
           at: .
       - android/restore_build_cache
       - android/restore_gradle_cache:
-          cache_prefix: v4-android
+          cache_prefix: v5-android
       - run:
           name: Build and test Android app
           command: ./gradlew androidApp:assembleDebug androidApp:testDebugUnitTest
       - android/save_build_cache
       - android/save_gradle_cache:
-          cache_prefix: v4-android
+          cache_prefix: v5-android
       - store_artifacts:
           path: androidApp/build/reports/tests
           destination: android-test-reports
