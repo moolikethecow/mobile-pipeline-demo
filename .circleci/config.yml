@@ -25,6 +25,11 @@ jobs:
           command: ./gradlew :shared:build :shared:test
       - android/save_gradle_cache:
           cache_prefix: v1-shared
+      - store_artifacts:
+          path: shared/build/reports
+          destination: shared-module-reports
+      - store_test_results:
+          path: shared/build/test-results
       - persist_to_workspace:
           root: .
           paths:
@@ -48,8 +53,13 @@ jobs:
       - android/save_gradle_cache:
           cache_prefix: v1-android
       - store_artifacts:
-          path: androidApp/build/reports
-          destination: android-reports
+          path: androidApp/build/reports/tests
+          destination: android-test-reports
+      - store_artifacts:
+          path: androidApp/build/outputs/apk
+          destination: android-apk
+      - store_test_results:
+          path: androidApp/build/test-results
 
   ios_build_and_test:
     executor: ios-executor
