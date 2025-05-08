@@ -5,29 +5,13 @@ orbs:
   gradle: circleci/gradle@3.0.0
 
 executors:
-  android-machine:
-    machine:
-      image: android:2023.10.1
-      resource_class: large
+  android-docker:
+    docker:
+      - image: cimg/android:2025.04 # Use the latest stable tag from the official page
   ios-executor:
     macos:
-      xcode: "15.2.0" # Set to your required Xcode version
+      xcode: "15.2.0"
       resource_class: m2pro.large
-    working_directory: ~/project
-
-commands:
-  restore_gradle_cache:
-    steps:
-      - restore_cache:
-          keys:
-            - gradle-cache-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
-            - gradle-cache-
-  save_gradle_cache:
-    steps:
-      - save_cache:
-          paths:
-            - ~/.gradle
-          key: gradle-cache-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
 
 jobs:
   shared_build:
@@ -35,11 +19,13 @@ jobs:
       - image: cimg/openjdk:17.0
     steps:
       - checkout
-      - restore_gradle_cache
+      - android/restore_gradle_cache:
+          cache_prefix: v1-shared
       - run:
           name: Build and test shared module
           command: ./gradlew :shared:build :shared:test
-      - save_gradle_cache
+      - android/save_gradle_cache:
+          cache_prefix: v1-shared
       - persist_to_workspace:
           root: .
           paths:
@@ -48,20 +34,21 @@ jobs:
             - .gradle
 
   android_build_and_test:
-    executor: android-machine
+    executor: android-docker
     steps:
       - checkout
-      - gradle/with_cache:
-          steps:
-            - run:
-                name: Build and test Android app
-                command: ./gradlew androidApp:assembleDebug androidApp:testDebugUnitTest
+      - android/restore_build_cache
+      - android/restore_gradle_cache:
+          cache_prefix: v1-android
+      - run:
+          name: Build and test Android app
+          command: ./gradlew androidApp:assembleDebug androidApp:testDebugUnitTest
+      - android/save_build_cache
+      - android/save_gradle_cache:
+          cache_prefix: v1-android
       - store_artifacts:
           path: androidApp/build/reports
           destination: android-reports
-      - store_artifacts:
-          path: androidApp/build/outputs
-          destination: android-outputs
 
   ios_build_and_test:
     executor: ios-executor
