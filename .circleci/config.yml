@@ -18,11 +18,35 @@ jobs:
     executor: ios-executor
     steps:
       - checkout
+      # Cache Homebrew packages
+      - restore_cache:
+          keys:
+            - v1-homebrew-{{ .Branch }}-{{ checksum "build.gradle.kts" }}
+            - v1-homebrew-{{ .Branch }}-
+            - v1-homebrew-
       - run:
-          name: Instal SDK Manager
+          name: Install Android SDK Manager
+          environment:
+            HOMEBREW_NO_AUTO_UPDATE: 1
           command: |
-            brew install --cask android-commandlinetools
+            brew install --cask android-commandlinetools || true
+      - save_cache:
+          paths:
+            - /usr/local/Homebrew
+            - ~/Library/Caches/Homebrew
+          key: v1-homebrew-{{ .Branch }}-{{ checksum "build.gradle.kts" }}
+      - run:
+          name: Setup Android SDK
+          command: |
+            echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> $BASH_ENV
+            echo 'export ANDROID_SDK_ROOT=$HOME/Library/Android/sdk' >> $BASH_ENV
+            echo 'export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools' >> $BASH_ENV
+            source $BASH_ENV
+            mkdir -p "$ANDROID_HOME/cmdline-tools"
+            sdkmanager --list || true
       - android/accept_licenses
+      - android/install_ndk:
+          version: "28.1.13356709"
       - android/restore_gradle_cache:
           cache_prefix: v5-shared
       - run:
