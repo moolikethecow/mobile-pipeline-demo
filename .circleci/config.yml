@@ -21,9 +21,9 @@ jobs:
       - android/restore_gradle_cache:
           cache_prefix: v1-shared
       - run:
-          name: Build and test shared module for all platforms
+          name: Build shared module for Android
           command: |
-            ./gradlew :shared:build :shared:test :shared:embedAndSignAppleFrameworkForXcode
+            ./gradlew :shared:build :shared:test -x :shared:iosArm64Test -x :shared:iosX64Test -x :shared:iosSimulatorArm64Test
       - android/save_gradle_cache:
           cache_prefix: v1-shared
       - store_artifacts:
@@ -35,7 +35,6 @@ jobs:
           root: .
           paths:
             - shared/build
-            - shared/build/xcode-frameworks
             - shared/src
             - .gradle
 
@@ -69,6 +68,10 @@ jobs:
       - checkout
       - attach_workspace:
           at: .
+      - run:
+          name: Build Kotlin framework for iOS
+          command: |
+            ./gradlew :shared:compileKotlinIosArm64 :shared:compileKotlinIosX64 :shared:compileKotlinIosSimulatorArm64
       - run:
           name: Install dependencies
           command: |
