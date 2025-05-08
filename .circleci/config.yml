@@ -38,39 +38,50 @@ jobs:
       - run:
           name: Setup Android SDK
           command: |
+            # Set Android paths correctly for macOS with Homebrew
             echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> $BASH_ENV
             echo 'export ANDROID_SDK_ROOT=$HOME/Library/Android/sdk' >> $BASH_ENV
             
-            # Ensure cmdline-tools is properly set up
-            mkdir -p "$HOME/Library/Android/sdk/cmdline-tools/latest/bin"
-            
             # Add to path with proper precedence
-            echo 'export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH' >> $BASH_ENV
+            echo 'export PATH=/opt/homebrew/bin:$PATH' >> $BASH_ENV
             source $BASH_ENV
             
             # Test SDK installation
-            ls -la $ANDROID_HOME || true
             echo "PATH: $PATH"
+            which sdkmanager
+      
+      - run:
+          name: Accept Android SDK Licenses
+          command: |
+            # Create Android SDK directory if it doesn't exist
+            mkdir -p $HOME/Library/Android/sdk
             
-            # Debug Android commandlinetools location
-            echo "Finding Android command line tools:"
-            find /usr/local -name "sdkmanager" || true
-            find $HOME -name "sdkmanager" || true
-            which sdkmanager || true
-      - android/accept_licenses
+            # Accept all licenses
+            yes | sdkmanager --licenses
+            
+            # Install basic packages
+            yes | sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+            
+            echo "Android SDK setup completed"
+      
       - android/restore_gradle_cache:
           cache_prefix: v5-shared
+      
       - run:
           name: Build shared module for all platforms
           command: |
             ./gradlew :shared:build :shared:test
+      
       - android/save_gradle_cache:
           cache_prefix: v5-shared
+      
       - store_artifacts:
           path: shared/build/reports
           destination: shared-module-reports
+      
       - store_test_results:
           path: shared/build/test-results
+      
       - persist_to_workspace:
           root: .
           paths:
