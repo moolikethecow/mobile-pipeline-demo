@@ -40,13 +40,24 @@ jobs:
           command: |
             echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> $BASH_ENV
             echo 'export ANDROID_SDK_ROOT=$HOME/Library/Android/sdk' >> $BASH_ENV
-            echo 'export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools' >> $BASH_ENV
+            
+            # Ensure cmdline-tools is properly set up
+            mkdir -p "$HOME/Library/Android/sdk/cmdline-tools/latest/bin"
+            
+            # Add to path with proper precedence
+            echo 'export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH' >> $BASH_ENV
             source $BASH_ENV
-            mkdir -p "$ANDROID_HOME/cmdline-tools"
-            sdkmanager --list || true
+            
+            # Test SDK installation
+            ls -la $ANDROID_HOME || true
+            echo "PATH: $PATH"
+            
+            # Debug Android commandlinetools location
+            echo "Finding Android command line tools:"
+            find /usr/local -name "sdkmanager" || true
+            find $HOME -name "sdkmanager" || true
+            which sdkmanager || true
       - android/accept_licenses
-      - android/install_ndk:
-          version: "28.1.13356709"
       - android/restore_gradle_cache:
           cache_prefix: v5-shared
       - run:
