@@ -1,0 +1,118 @@
+version: 2.1
+
+orbs:
+  android: circleci/android@3.1.0
+  gradle: circleci/gradle@3.0.0
+
+executors:
+  android-machine:
+    machine:
+      image: android:2023.10.1
+      resource_class: large
+  ios-executor:
+    macos:
+      xcode: "15.2.0" # Set to your required Xcode version
+      resource_class: m2pro.large
+    working_directory: ~/project
+
+commands:
+  restore_gradle_cache:
+    steps:
+      - restore_cache:
+          keys:
+            - gradle-cache-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
+            - gradle-cache-
+  save_gradle_cache:
+    steps:
+      - save_cache:
+          paths:
+            - ~/.gradle
+          key: gradle-cache-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
+
+jobs:
+  shared_build:
+    docker:
+      - image: cimg/openjdk:17.0
+    steps:
+      - checkout
+      - restore_gradle_cache
+      - run:
+          name: Build and test shared module
+          command: ./gradlew :shared:build :shared:test
+      - save_gradle_cache
+      - persist_to_workspace:
+          root: .
+          paths:
+            - shared/build
+            - shared/src
+            - .gradle
+
+  android_build_and_test:
+    executor: android-machine
+    steps:
+      - checkout
+      - gradle/with_cache:
+          steps:
+            - run:
+                name: Build and test Android app
+                command: ./gradlew androidApp:assembleDebug androidApp:testDebugUnitTest
+      - store_artifacts:
+          path: androidApp/build/reports
+          destination: android-reports
+      - store_artifacts:
+          path: androidApp/build/outputs
+          destination: android-outputs
+
+  ios_build_and_test:
+    executor: ios-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            brew install cocoapods || true
+            pod install --project-directory=iosApp/iosApp || true
+      - run:
+          name: Build iOS app
+          command: |
+            xcodebuild -workspace iosApp/iosApp.xcodeproj/project.xcworkspace \
+              -scheme iosApp \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              build
+      - run:
+          name: Run iOS tests
+          command: |
+            xcodebuild test -workspace iosApp/iosApp.xcodeproj/project.xcworkspace \
+              -scheme iosApp \
+              -sdk iphonesimulator \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2'
+      - store_artifacts:
+          path: iosApp/iosApp/build
+          destination: ios-outputs
+
+  deploy:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - run:
+          name: Dummy deploy
+          command: echo "Deploy step (replace with real deployment)"
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - shared_build
+      - android_build_and_test:
+          requires:
+            - shared_build
+      - ios_build_and_test:
+          requires:
+            - shared_build
+      - deploy:
+          requires:
+            - android_build_and_test
+            - ios_build_and_test 
