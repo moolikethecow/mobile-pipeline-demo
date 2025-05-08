@@ -36,6 +36,8 @@ jobs:
     executor: android-docker
     steps:
       - checkout
+      - attach_workspace:
+          at: .
       - android/restore_build_cache
       - android/restore_gradle_cache:
           cache_prefix: v1-android
@@ -52,9 +54,9 @@ jobs:
   ios_build_and_test:
     executor: ios-executor
     steps:
+      - checkout
       - attach_workspace:
           at: .
-      - checkout
       - run:
           name: Install dependencies
           command: |
