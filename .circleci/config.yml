@@ -18,8 +18,10 @@ jobs:
     executor: ios-executor
     steps:
       - checkout
-      - android/install_ndk:
-          version: "28.1.13356709"
+      - run:
+          name: Instal SDK Manager
+          command: |
+            brew install --cask android-commandlinetools
       - android/accept_licenses
       - android/restore_gradle_cache:
           cache_prefix: v5-shared
