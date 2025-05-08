@@ -18,14 +18,9 @@ jobs:
     executor: ios-executor
     steps:
       - checkout
-      - run:
-          name: Set up Java
-          command: |
-            java -version
-      # Use built-in Android orb commands for SDK and license setup
-      - android/accept_licenses
       - android/install_ndk:
           version: "28.1.13356709"
+      - android/accept_licenses
       - android/restore_gradle_cache:
           cache_prefix: v5-shared
       - run:
