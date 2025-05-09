@@ -55,12 +55,12 @@ commands:
       - run:
           name: Set ANDROID_HOME and PATH
           command: |
-            mkdir -p $HOME/Library/Android/sdk
-            echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> $BASH_ENV
-            echo 'export ANDROID_SDK_ROOT=$HOME/Library/Android/sdk' >> $BASH_ENV
-            echo 'export PATH=$HOME/Library/Android/sdk/platform-tools:$PATH' >> $BASH_ENV
-            echo 'export PATH=$HOME/Library/Android/sdk/cmdline-tools/latest/bin:$PATH' >> $BASH_ENV
-            echo 'export PATH=$HOME/Library/Android/sdk/emulator:$PATH' >> $BASH_ENV
+            #mkdir -p $HOME/Library/Android/sdk
+            echo 'export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools' >> $BASH_ENV
+            echo 'export ANDROID_SDK_ROOT=/opt/homebrew/share/android-commandlinetools' >> $BASH_ENV
+            # echo 'export PATH=$HOME/Library/Android/sdk/platform-tools:$PATH' >> $BASH_ENV
+            # echo 'export PATH=$HOME/Library/Android/sdk/cmdline-tools/latest/bin:$PATH' >> $BASH_ENV
+            # echo 'export PATH=$HOME/Library/Android/sdk/emulator:$PATH' >> $BASH_ENV
             source $BASH_ENV
             echo "ANDROID_HOME: $ANDROID_HOME"
             echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
