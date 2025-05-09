@@ -7,7 +7,8 @@ orbs:
 executors:
   android-docker:
     docker:
-      - image: cimg/android:2025.04 # Use the latest stable tag from the official page
+      - image: cimg/android:2025.04
+    resource_class: xlarge
   ios-executor:
     macos:
       xcode: "15.2.0"
@@ -19,7 +20,7 @@ commands:
     parameters:
       cache_prefix:
         type: string
-        default: v1
+        default: v1-android
       cache_enabled:
         type: boolean
         default: true
@@ -30,7 +31,7 @@ commands:
             - restore_cache:
                 keys:
                   - << parameters.cache_prefix >>-homebrew-{{ .Branch }}
-                  - << parameters.cache_prefix >>-hoembrew
+                  - << parameters.cache_prefix >>-homebrew
       - run:
           name: Install Android SDK Manager
           command: |  
@@ -55,12 +56,8 @@ commands:
       - run:
           name: Set ANDROID_HOME and PATH
           command: |
-            #mkdir -p $HOME/Library/Android/sdk
             echo 'export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools' >> $BASH_ENV
             echo 'export ANDROID_SDK_ROOT=/opt/homebrew/share/android-commandlinetools' >> $BASH_ENV
-            # echo 'export PATH=$HOME/Library/Android/sdk/platform-tools:$PATH' >> $BASH_ENV
-            # echo 'export PATH=$HOME/Library/Android/sdk/cmdline-tools/latest/bin:$PATH' >> $BASH_ENV
-            # echo 'export PATH=$HOME/Library/Android/sdk/emulator:$PATH' >> $BASH_ENV
             source $BASH_ENV
             echo "ANDROID_HOME: $ANDROID_HOME"
             echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
@@ -83,7 +80,7 @@ jobs:
     steps:
       - checkout
       - install-android-sdk-manager:
-          cache_prefix: v1
+          cache_prefix: v1-android
       - setup-android-sdk
       - android/restore_gradle_cache:
           cache_prefix: v5-shared
@@ -91,6 +88,11 @@ jobs:
           name: Build shared module for all platforms
           command: |
             ./gradlew :shared:build :shared:test
+      - run:
+          name: List shared test results and reports
+          command: |
+            ls -l shared/build/test-results || true
+            ls -l shared/build/reports/tests || true
       - android/save_gradle_cache:
           cache_prefix: v5-shared
       - store_artifacts:
@@ -117,6 +119,11 @@ jobs:
       - run:
           name: Build and test Android app
           command: ./gradlew androidApp:assembleDebug androidApp:testDebugUnitTest
+      - run:
+          name: List android test results and reports
+          command: |
+            ls -l androidApp/build/test-results || true
+            ls -l androidApp/build/reports/tests || true
       - android/save_build_cache
       - android/save_gradle_cache:
           cache_prefix: v5-android
@@ -131,15 +138,33 @@ jobs:
 
   ios_build_and_test:
     executor: ios-executor
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
       - checkout
-      - attach_workspace:
-          at: .
+      - restore_cache:
+          keys:
+            - v1-cocoapods-homebrew-{{ .Branch }}
+            - v1-cocoapods-homebrew
+      - restore_cache:
+          keys:
+            - v1-pods-{{ checksum "iosApp/iosApp/Podfile.lock" }}
+            - v1-pods-
       - run:
           name: Install dependencies
           command: |
             brew install cocoapods || true
+            gem install xcpretty || true
             pod install --project-directory=iosApp/iosApp || true
+      - save_cache:
+          paths:
+            - /usr/local/Homebrew
+            - ~/Library/Caches/Homebrew
+          key: v1-cocoapods-homebrew-{{ .Branch }}
+      - save_cache:
+          paths:
+            - iosApp/iosApp/Pods
+          key: v1-pods-{{ checksum "iosApp/iosApp/Podfile.lock" }}
       - run:
           name: Build iOS app
           command: |
@@ -151,15 +176,18 @@ jobs:
       - run:
           name: Run iOS tests
           command: |
+            set -o pipefail && \
             xcodebuild test -workspace iosApp/iosApp.xcodeproj/project.xcworkspace \
               -scheme iosApp \
               -sdk iphonesimulator \
               -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
               -destination-timeout 60 \
-              IPHONEOS_DEPLOYMENT_TARGET=14.0
+              IPHONEOS_DEPLOYMENT_TARGET=14.0 | xcpretty --report junit --output iosApp/iosApp/build/junit.xml
+      - store_test_results:
+          path: iosApp/iosApp/build/junit.xml
       - store_artifacts:
-          path: iosApp/iosApp/build
-          destination: ios-outputs
+          path: iosApp/iosApp/build/Build/Products/Debug-iphonesimulator/iosApp.app
+          destination: ios-app
 
   deploy:
     docker:
