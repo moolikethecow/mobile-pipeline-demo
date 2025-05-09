@@ -83,7 +83,7 @@ jobs:
           cache_prefix: v1-android
       - setup-android-sdk
       - android/restore_gradle_cache:
-          cache_prefix: v5-shared
+          cache_prefix: v6-shared
       - run:
           name: Build shared module for all platforms
           command: |
@@ -94,12 +94,15 @@ jobs:
             ls -l shared/build/test-results || true
             ls -l shared/build/reports/tests || true
       - android/save_gradle_cache:
-          cache_prefix: v5-shared
+          cache_prefix: v6-shared
       - store_artifacts:
           path: shared/build/reports
           destination: shared-module-reports
-      - store_test_results:
-          path: shared/build/test-results
+      # - store_test_results:
+      #     path: shared/build/test-results
+      - store_artifacts:
+          path: build/reports/configuration-cache
+          destination: configuration-cache-report
       - persist_to_workspace:
           root: .
           paths:
@@ -115,18 +118,13 @@ jobs:
           at: .
       - android/restore_build_cache
       - android/restore_gradle_cache:
-          cache_prefix: v5-android
+          cache_prefix: v6-android
       - run:
           name: Build and test Android app
           command: ./gradlew androidApp:assembleDebug androidApp:testDebugUnitTest
-      - run:
-          name: List android test results and reports
-          command: |
-            ls -l androidApp/build/test-results || true
-            ls -l androidApp/build/reports/tests || true
       - android/save_build_cache
       - android/save_gradle_cache:
-          cache_prefix: v5-android
+          cache_prefix: v6-android
       - store_artifacts:
           path: androidApp/build/reports/tests
           destination: android-test-reports
@@ -144,27 +142,16 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v1-cocoapods-homebrew-{{ .Branch }}
-            - v1-cocoapods-homebrew
-      - restore_cache:
-          keys:
-            - v1-pods-{{ checksum "iosApp/iosApp/Podfile.lock" }}
-            - v1-pods-
+            - v1-gem-cache-{{ arch }}
+            - v1-gem-cache
       - run:
-          name: Install dependencies
+          name: Install xcpretty
           command: |
-            brew install cocoapods || true
-            gem install xcpretty || true
-            pod install --project-directory=iosApp/iosApp || true
+            gem install xcpretty
       - save_cache:
           paths:
-            - /usr/local/Homebrew
-            - ~/Library/Caches/Homebrew
-          key: v1-cocoapods-homebrew-{{ .Branch }}
-      - save_cache:
-          paths:
-            - iosApp/iosApp/Pods
-          key: v1-pods-{{ checksum "iosApp/iosApp/Podfile.lock" }}
+            - ~/.gem
+          key: v1-gem-cache-{{ arch }}
       - run:
           name: Build iOS app
           command: |
@@ -172,6 +159,7 @@ jobs:
               -scheme iosApp \
               -sdk iphonesimulator \
               -configuration Debug \
+              -derivedDataPath ./derivedData \
               build
       - run:
           name: Run iOS tests
@@ -180,13 +168,18 @@ jobs:
             xcodebuild test -workspace iosApp/iosApp.xcodeproj/project.xcworkspace \
               -scheme iosApp \
               -sdk iphonesimulator \
+              -configuration Debug \
+              -derivedDataPath ./derivedData \
               -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
               -destination-timeout 60 \
               IPHONEOS_DEPLOYMENT_TARGET=14.0 | xcpretty --report junit --output iosApp/iosApp/build/junit.xml
       - store_test_results:
           path: iosApp/iosApp/build/junit.xml
       - store_artifacts:
-          path: iosApp/iosApp/build/Build/Products/Debug-iphonesimulator/iosApp.app
+          path: iosApp/iosApp/build/junit.xml
+          destination: ios-junit-report
+      - store_artifacts:
+          path: derivedData/Build/Products/Debug-iphonesimulator/iosApp.app
           destination: ios-app
 
   deploy:
