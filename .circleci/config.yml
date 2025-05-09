@@ -13,66 +13,79 @@ executors:
       xcode: "15.2.0"
       resource_class: m2pro.large
 
+commands:
+  install-android-sdk:
+    description: "Install Android SDK"
+    parameters:
+      cache_prefix:
+        type: string
+        default: v1
+      cache_enabled:
+        type: boolean
+        default: true
+    steps:
+      - when:
+          condition: << parameters.cache_enabled >>
+          steps:
+            - restore_cache:
+                keys:
+                  - << parameters.cache_prefix >>-homebrew-{{ .Branch }}
+                  - << parameters.cache_prefix >>-hoembrew
+      - run:
+          name: Install Android SDK Manager
+          command: |  
+            brew install --cask android-commandlinetools || true  
+            echo "Android SDK Manager installed"
+            echo 'export PATH=/opt/homebrew/bin:$PATH' >> $BASH_ENV
+            source $BASH_ENV
+            echo 'export ANDROID_HOME=$(which sdkmanager)' >> $BASH_ENV
+            source $BASH_ENV
+            echo "PATH: $PATH"
+            echo "ANDROID_HOME: $ANDROID_HOME"
+            echo "sdkmanager: $(which sdkmanager)"
+      - when:
+          condition: << parameters.cache_enabled >>
+          steps:
+            - save_cache:
+                paths:
+                  - /usr/local/Homebrew
+                  - ~/Library/Caches/Homebrew
+                key: << parameters.cache_prefix >>-homebrew-{{ .Branch }}
+
+  setup-android-sdk:
+    description: "Setup Android SDK"
+    steps:
+      - run:
+          name: Accept Android SDK Licenses
+          command: |
+            yes | sdkmanager --licenses || if [ $? -ne '141' ]; then exit $?; fi;  #Captures SIGPIPE 141 error but still allow repeating "y" to accept all licenses
+      - run:
+          name: Install Android SDK
+          command: |
+            yes | sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+            echo "Android SDK installed"
+
 jobs:
   shared_build:
     executor: ios-executor
     steps:
       - checkout
-      # Cache Homebrew packages
-      - restore_cache:
-          keys:
-            - v1-homebrew-{{ .Branch }}-{{ checksum "build.gradle.kts" }}
-            - v1-homebrew-{{ .Branch }}-
-            - v1-homebrew-
-      - run:
-          name: Install Android SDK Manager
-          environment:
-            HOMEBREW_NO_AUTO_UPDATE: 1
-          command: |
-            brew install --cask android-commandlinetools || true
-      - save_cache:
-          paths:
-            - /usr/local/Homebrew
-            - ~/Library/Caches/Homebrew
-          key: v1-homebrew-{{ .Branch }}-{{ checksum "build.gradle.kts" }}
-      - run:
-          name: Setup Android SDK
-          command: |
-            # Set Android paths correctly for macOS with Homebrew
-            echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> $BASH_ENV
-            echo 'export ANDROID_SDK_ROOT=$HOME/Library/Android/sdk' >> $BASH_ENV
-            
-            # Add to path with proper precedence
-            echo 'export PATH=/opt/homebrew/bin:$PATH' >> $BASH_ENV
-            source $BASH_ENV
-            
-            # Test SDK installation
-            echo "PATH: $PATH"
-            which sdkmanager
-      
-      - run:
-          name: Accept Android SDK Licenses
-          command: |
-            yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || if [ $? -ne '141' ]; then exit $?; fi;  #Captures SIGPIPE 141 error but still allow repeating "y" to accept all licenses
-      
+      - install-android-sdk:
+          cache_prefix: v1
+      - setup-android-sdk
       - android/restore_gradle_cache:
           cache_prefix: v5-shared
-      
       - run:
           name: Build shared module for all platforms
           command: |
             ./gradlew :shared:build :shared:test
-      
       - android/save_gradle_cache:
           cache_prefix: v5-shared
-      
       - store_artifacts:
           path: shared/build/reports
           destination: shared-module-reports
-      
       - store_test_results:
           path: shared/build/test-results
-      
       - persist_to_workspace:
           root: .
           paths:
