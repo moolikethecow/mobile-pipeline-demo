@@ -125,14 +125,14 @@ jobs:
       - android/save_build_cache
       - android/save_gradle_cache:
           cache_prefix: v6-android
-      - store_artifacts:
-          path: androidApp/build/reports/tests
-          destination: android-test-reports
+      # - store_artifacts:
+      #     path: androidApp/build/reports/tests
+      #     destination: android-test-reports
       - store_artifacts:
           path: androidApp/build/outputs/apk
           destination: android-apk
-      - store_test_results:
-          path: androidApp/build/test-results
+      # - store_test_results:
+      #     path: androidApp/build/test-results
 
   ios_build_and_test:
     executor: ios-executor
@@ -178,8 +178,13 @@ jobs:
       - store_artifacts:
           path: iosApp/iosApp/build/junit.xml
           destination: ios-junit-report
+      - run:
+          name: Zip iOS app bundle
+          command: |
+            cd derivedData/Build/Products/Debug-iphonesimulator
+            zip -r iosApp.app.zip iosApp.app
       - store_artifacts:
-          path: derivedData/Build/Products/Debug-iphonesimulator/iosApp.app
+          path: derivedData/Build/Products/Debug-iphonesimulator/iosApp.app.zip
           destination: ios-app
 
   deploy:
@@ -191,7 +196,6 @@ jobs:
           command: echo "Deploy step (replace with real deployment)"
 
 workflows:
-  version: 2
   build_and_test:
     jobs:
       - shared_build
