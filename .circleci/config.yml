@@ -265,6 +265,7 @@ workflows:
           requires:
             - "Shared Module Build"
       - deploy:
+          name: "Deploy << matrix.component_name >>"
           matrix:
             parameters:
               environment: ["Mobile Apps"]
@@ -273,8 +274,10 @@ workflows:
             exclude:
               - component_name: "KMM-RSS-Reader-ios"
                 deploy_type: "android"
+                environment: "Mobile Apps"
               - component_name: "KMM-RSS-Reader-android"
                 deploy_type: "ios"
+                environment: "Mobile Apps"
           requires:
             - "Android Build and Test"
             - "iOS Build and Test"
