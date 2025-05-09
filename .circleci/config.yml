@@ -66,14 +66,14 @@ commands:
             echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
             echo "PATH: $PATH"
       - run:
+          name: Install Android SDK
+          command: |
+            yes | sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" || if [ $? -ne '141' ]; then exit $?; fi;  #Captures SIGPIPE 141 error but still allow repeating "y" to accept all licenses
+            echo "Android SDK installed"
+      - run:
           name: Accept Android SDK Licenses
           command: |
             yes | sdkmanager --licenses || if [ $? -ne '141' ]; then exit $?; fi;  #Captures SIGPIPE 141 error but still allow repeating "y" to accept all licenses
-      - run:
-          name: Install Android SDK
-          command: |
-            yes | sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2" || if [ $? -ne '141' ]; then exit $?; fi;  #Captures SIGPIPE 141 error but still allow repeating "y" to accept all licenses
-            echo "Android SDK installed"
 
 jobs:
   shared_build:
