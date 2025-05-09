@@ -188,24 +188,93 @@ jobs:
           destination: ios-app
 
   deploy:
+    parameters:
+      environment:
+        type: string
+        default: "Mobile Apps"
+      component_name:
+        type: string
+        default: "KMM-RSS-Reader"
+      deploy_type:
+        type: enum
+        enum: ["ios", "android"]
+        default: "ios"
     docker:
       - image: cimg/base:stable
     steps:
       - run:
-          name: Dummy deploy
-          command: echo "Deploy step (replace with real deployment)"
+          name: Determine version from source
+          command: |
+            if [ "<< parameters.deploy_type >>" = "android" ]; then
+              VERSION=$(grep versionName androidApp/build.gradle.kts | head -1 | awk -F'"' '{print $2}')
+            elif [ "<< parameters.deploy_type >>" = "ios" ]; then
+              VERSION=$(grep -A1 CFBundleShortVersionString iosApp/iosApp/Info.plist | tail -1 | sed -E 's/.*<string>(.*)<\/string>.*/\1/')
+            else
+              echo "Unknown deploy_type: << parameters.deploy_type >>" && exit 1
+            fi
+            echo "VERSION=$VERSION" >> $BASH_ENV
+      - run:
+          name: Plan deployment
+          command: |
+            circleci run release plan << parameters.deploy_type >>-<< pipeline.id >> \
+              --environment-name="<< parameters.environment >>" \
+              --component-name=<< parameters.component_name >> \
+              --target-version=$VERSION
+      - run:
+          name: Update planned deployment to running
+          command: |
+            circleci run release update << parameters.deploy_type >>-<< pipeline.id >> --status=running
+      - run:
+          name: Simulate code signing
+          command: |
+            echo "Simulating code signing for << parameters.component_name >> on << parameters.deploy_type >>..."
+            sleep 5
+            echo "Code signing complete."
+      - run:
+          name: Simulate Store deployment
+          command: |
+            if [ "<< parameters.deploy_type >>" = "android" ]; then
+              echo "Deploying Android app to Play Store..."
+            else
+              echo "Deploying iOS app to App Store..."
+            fi
+            sleep 5
+            echo "Deployment complete."
+      - run:
+          name: Update planned deployment to SUCCESS
+          command: |
+            circleci run release update << parameters.deploy_type >>-<< pipeline.id >> --status=SUCCESS
+          when: on_success
+      - run:
+          name: Update planned deployment to FAILED
+          command: |
+            circleci run release update << parameters.deploy_type >>-<< pipeline.id >> --status=FAILED
+          when: on_fail
 
 workflows:
   build_and_test:
     jobs:
-      - shared_build
+      - shared_build:
+          name: Shared Module Build
       - android_build_and_test:
+          name: Android Build and Test
           requires:
-            - shared_build
+            - "Shared Module Build"
       - ios_build_and_test:
+          name: iOS Build and Test
           requires:
-            - shared_build
+            - "Shared Module Build"
       - deploy:
+          matrix:
+            parameters:
+              environment: ["Mobile Apps"]
+              component_name: ["KMM-RSS-Reader-ios", "KMM-RSS-Reader-android"]
+              deploy_type: ["ios", "android"]
+            exclude:
+              - component_name: "KMM-RSS-Reader-ios"
+                deploy_type: "android"
+              - component_name: "KMM-RSS-Reader-android"
+                deploy_type: "ios"
           requires:
-            - android_build_and_test
-            - ios_build_and_test 
+            - "Android Build and Test"
+            - "iOS Build and Test"
