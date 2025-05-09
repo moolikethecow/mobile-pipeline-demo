@@ -14,8 +14,8 @@ executors:
       resource_class: m2pro.large
 
 commands:
-  install-android-sdk:
-    description: "Install Android SDK"
+  install-android-sdk-manager:
+    description: "Install Android SDK Manager"
     parameters:
       cache_prefix:
         type: string
@@ -40,11 +40,6 @@ commands:
             echo "Android SDK Manager installed"
             echo 'export PATH=/opt/homebrew/bin:$PATH' >> $BASH_ENV
             source $BASH_ENV
-            echo 'export ANDROID_HOME=$(which sdkmanager)' >> $BASH_ENV
-            source $BASH_ENV
-            echo "PATH: $PATH"
-            echo "ANDROID_HOME: $ANDROID_HOME"
-            echo "sdkmanager: $(which sdkmanager)"
       - when:
           condition: << parameters.cache_enabled >>
           steps:
@@ -58,6 +53,19 @@ commands:
     description: "Setup Android SDK"
     steps:
       - run:
+          name: Set ANDROID_HOME and PATH
+          command: |
+            mkdir -p $HOME/Library/Android/sdk
+            echo 'export ANDROID_HOME=$HOME/Library/Android/sdk' >> $BASH_ENV
+            echo 'export ANDROID_SDK_ROOT=$HOME/Library/Android/sdk' >> $BASH_ENV
+            echo 'export PATH=$HOME/Library/Android/sdk/platform-tools:$PATH' >> $BASH_ENV
+            echo 'export PATH=$HOME/Library/Android/sdk/cmdline-tools/latest/bin:$PATH' >> $BASH_ENV
+            echo 'export PATH=$HOME/Library/Android/sdk/emulator:$PATH' >> $BASH_ENV
+            source $BASH_ENV
+            echo "ANDROID_HOME: $ANDROID_HOME"
+            echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+            echo "PATH: $PATH"
+      - run:
           name: Accept Android SDK Licenses
           command: |
             yes | sdkmanager --licenses || if [ $? -ne '141' ]; then exit $?; fi;  #Captures SIGPIPE 141 error but still allow repeating "y" to accept all licenses
@@ -70,9 +78,11 @@ commands:
 jobs:
   shared_build:
     executor: ios-executor
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
       - checkout
-      - install-android-sdk:
+      - install-android-sdk-manager:
           cache_prefix: v1
       - setup-android-sdk
       - android/restore_gradle_cache:
