@@ -53,16 +53,7 @@ jobs:
       - run:
           name: Accept Android SDK Licenses
           command: |
-            # Create Android SDK directory if it doesn't exist
-            mkdir -p $HOME/Library/Android/sdk
-            
-            # Accept all licenses
-            yes | sdkmanager --licenses
-            
-            # Install basic packages
-            yes | sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-            
-            echo "Android SDK setup completed"
+            yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses || if [ $? -ne '141' ]; then exit $?; fi;  #Captures SIGPIPE 141 error but still allow repeating "y" to accept all licenses
       
       - android/restore_gradle_cache:
           cache_prefix: v5-shared
