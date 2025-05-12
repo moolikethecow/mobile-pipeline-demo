@@ -78,6 +78,11 @@ jobs:
     environment:
       HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
+      - run:
+          name: Force Fail Shared Build
+          command: |
+            echo "Failing shared_build job intentionally!"
+            exit 1
       - checkout
       - install-android-sdk-manager:
           cache_prefix: v1-android
@@ -88,16 +93,11 @@ jobs:
           name: Build shared module for all platforms
           command: |
             ./gradlew :shared:build :shared:test
-      - run:
-          name: List shared test results and reports
-          command: |
-            ls -l shared/build/test-results || true
-            ls -l shared/build/reports/tests || true
       - android/save_gradle_cache:
           cache_prefix: v6-shared
       - store_artifacts:
           path: shared/build/reports
-          destination: shared-module-reports
+          destination: shared-module-reportse
       # - store_test_results:
       #     path: shared/build/test-results
       - store_artifacts:
