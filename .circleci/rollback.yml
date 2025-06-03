@@ -1,0 +1,83 @@
+# This is a template CircleCI rollback config. Uncomment and configure the section for your platform.
+
+version: 2.1
+
+parameters:
+  app_type:
+    type: enum
+    enum: ["android", "ios"]
+    default: "android"
+
+orbs:
+  android: circleci/android@3.1.0
+  gradle: circleci/gradle@3.0.0
+
+executors:
+  android-docker:
+    docker:
+      - image: cimg/android:2025.04
+    resource_class: xlarge
+  ios-executor:
+    macos:
+      xcode: "15.2.0"
+      resource_class: m2pro.large
+
+commands:
+  install-android-sdk-manager:
+    description: "Install Android SDK Manager"
+    parameters:
+      cache_prefix:
+        type: string
+        default: v1-android
+      cache_enabled:
+        type: boolean
+        default: true
+    steps:
+      - when:
+          condition: << parameters.cache_enabled >>
+          steps:
+            - restore_cache:
+                keys:
+                  - << parameters.cache_prefix >>-homebrew-{{ .Branch }}
+                  - << parameters.cache_prefix >>-homebrew
+      - run:
+          name: Install Android SDK Manager
+          command: |  
+            brew install --cask temurin || true
+            echo "Temurin installed"
+            brew install --cask android-commandlinetools || true  
+            echo "Android SDK Manager installed"
+            echo 'export PATH=/opt/homebrew/bin:$PATH' >> $BASH_ENV
+            source $BASH_ENV
+      - when:
+          condition: << parameters.cache_enabled >>
+          steps:
+            - save_cache:
+                paths:
+                  - /usr/local/Homebrew
+                  - ~/Library/Caches/Homebrew
+                key: << parameters.cache_prefix >>-homebrew-{{ .Branch }}
+
+  setup-android-sdk:
+
+
+jobs:
+  rollback-app:
+    executor: android-docker
+    environment:
+      FORCE_COLOR: 3
+    steps:
+      - checkout
+      - run:
+          name: Print pipeline.deploy values
+          command: |
+            echo "Component Name: << pipeline.deploy.component_name >>"
+            echo "Environment Name: << pipeline.deploy.environment_name >>"
+            echo "Namespace: << pipeline.deploy.namespace >>"
+            echo "Target Version: << pipeline.deploy.target_version >>"
+            echo "Current Version: << pipeline.deploy.current_version >>"
+
+workflows:
+  rollback:
+    jobs:
+      - rollback-app
