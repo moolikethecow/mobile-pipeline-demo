@@ -78,11 +78,11 @@ jobs:
     environment:
       HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
-      - run:
-          name: Force Fail Shared Build
-          command: |
-            echo "Failing shared_build job intentionally!"
-            exit 1
+      # - run:
+      #     name: Force Fail Shared Build
+      #     command: |
+      #       echo "Failing shared_build job intentionally!"
+      #       exit 1
       - checkout
       - install-android-sdk-manager:
           cache_prefix: v1-android
