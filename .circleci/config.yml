@@ -379,14 +379,14 @@ jobs:
       - run:
           name: Plan deployment
           command: |
-            circleci run release plan << parameters.deploy_type >>-<< pipeline.id >> \
+            circleci run release plan << parameters.component_name >>-<< pipeline.id >> \
               --environment-name="<< parameters.environment >>" \
               --component-name=<< parameters.component_name >> \
               --target-version=$VERSION
       - run:
           name: Update planned deployment to running
           command: |
-            circleci run release update << parameters.deploy_type >>-<< pipeline.id >> --status=running
+            circleci run release update << parameters.component_name >>-<< pipeline.id >> --status=running
       - run:
           name: Code signing with custom tools
           command: |
@@ -409,12 +409,12 @@ jobs:
       - run:
           name: Update planned deployment to SUCCESS
           command: |
-            circleci run release update << parameters.deploy_type >>-<< pipeline.id >> --status=SUCCESS
+            circleci run release update << parameters.component_name >>-<< pipeline.id >> --status=SUCCESS
           when: on_success
       - run:
           name: Update planned deployment to FAILED
           command: |
-            circleci run release update << parameters.deploy_type >>-<< pipeline.id >> --status=FAILED
+            circleci run release update << parameters.component_name >>-<< pipeline.id >> --status=FAILED
           when: on_fail
 
 workflows:
