@@ -440,22 +440,34 @@ workflows:
           requires:
             - "Shared Module Build"
       
-      # Parallel UI testing with 22 shards and intelligent test splitting
+      # Parallel UI testing with 22 shards - runs after both iOS builds complete
       - ios_ui_tests_parallel:
           name: iOS UI Tests (22 Parallel Shards)
           requires:
             - "iOS Build (M4 Pro)"
+            - "iOS Build (M2 Pro)"
       
-      # Multi-app deployment matrix - demonstrates support for multiple apps like Compass's 4-app architecture
+      # iOS deployments - require iOS builds and tests only
       - deploy:
-          name: "Deploy << matrix.app_name >>-<< matrix.deploy_type >>"
+          name: "Deploy << matrix.app_name >>-ios"
           matrix:
             parameters:
               environment: ["Mobile Apps"]
               app_name: ["Compass", "Glide"]
-              component_name: ["<< matrix.app_name >>-<< matrix.deploy_type >>"]
-              deploy_type: ["ios", "android"]
+              component_name: ["<< matrix.app_name >>-ios"]
+              deploy_type: ["ios"]
           requires:
-            - "Android Build and Test"
             - "iOS Build (M4 Pro)"
             - "iOS UI Tests (22 Parallel Shards)"
+      
+      # Android deployments - require Android builds and tests only
+      - deploy:
+          name: "Deploy << matrix.app_name >>-android"
+          matrix:
+            parameters:
+              environment: ["Mobile Apps"]
+              app_name: ["Compass", "Glide"]
+              component_name: ["<< matrix.app_name >>-android"]
+              deploy_type: ["android"]
+          requires:
+            - "Android Build and Test"
