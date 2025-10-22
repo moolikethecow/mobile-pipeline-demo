@@ -19,13 +19,13 @@ executors:
   # M4 Pro - 30-50% faster than M2 Pro for builds and tests
   ios-m4pro-medium:
     macos:
-      xcode: "16.0.0"
+      xcode: "15.4.0"
     resource_class: m4pro.medium
   
   # M2 Pro - for performance comparison
   ios-m2pro-medium:
     macos:
-      xcode: "16.0.0"
+      xcode: "15.4.0"
     resource_class: m2pro.medium
   
   ios-executor:
@@ -195,7 +195,7 @@ jobs:
               -sdk iphonesimulator \
               -configuration Debug \
               -derivedDataPath ./derivedData \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' \
               -destination-timeout 60 \
               IPHONEOS_DEPLOYMENT_TARGET=14.0 | xcpretty --report junit --output iosApp/iosApp/build/junit.xml
       - store_test_results:
@@ -249,7 +249,7 @@ jobs:
               -sdk iphonesimulator \
               -configuration Debug \
               -derivedDataPath ./derivedData \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' \
               -destination-timeout 60 \
               IPHONEOS_DEPLOYMENT_TARGET=14.0 | \
               xcpretty --report junit --output iosApp/iosApp/build/junit.xml
@@ -296,7 +296,7 @@ jobs:
               -sdk iphonesimulator \
               -configuration Debug \
               -derivedDataPath ./derivedData \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' \
               -destination-timeout 60 \
               IPHONEOS_DEPLOYMENT_TARGET=14.0 | xcpretty --report junit --output iosApp/iosApp/build/junit.xml
       - store_test_results:
@@ -339,7 +339,7 @@ jobs:
               -sdk iphonesimulator \
               -configuration Debug \
               -derivedDataPath ./derivedData \
-              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' \
               -destination-timeout 60 \
               IPHONEOS_DEPLOYMENT_TARGET=14.0 | xcpretty --report junit --output iosApp/iosApp/build/junit.xml
       - store_test_results:
