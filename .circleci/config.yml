@@ -9,6 +9,19 @@ executors:
     docker:
       - image: cimg/android:2025.04
     resource_class: xlarge
+  
+  # M4 Pro - 30-50% faster than M2 Pro for builds and tests
+  ios-m4pro-medium:
+    macos:
+      xcode: "16.0.0"
+    resource_class: m4pro.medium
+  
+  # M2 Pro - for performance comparison
+  ios-m2pro-medium:
+    macos:
+      xcode: "16.0.0"
+    resource_class: m2pro.medium
+  
   ios-executor:
     macos:
       xcode: "15.2.0"
@@ -73,6 +86,7 @@ commands:
             yes | sdkmanager --licenses || if [ $? -ne '141' ]; then exit $?; fi;  #Captures SIGPIPE 141 error but still allow repeating "y" to accept all licenses
 
 jobs:
+  # Shared module build supports multiple apps - like Compass's architecture with shared code across 4 apps
   shared_build:
     executor: ios-executor
     environment:
@@ -187,6 +201,133 @@ jobs:
           path: derivedData/Build/Products/Debug-iphonesimulator/iosApp.app.zip
           destination: ios-app
 
+  # Parallel UI testing with intelligent test splitting - handles Compass's 22 shard requirement
+  ios_ui_tests_parallel:
+    executor: ios-m4pro-medium
+    parallelism: 22
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-gem-cache-{{ arch }}
+            - v1-gem-cache
+      - run:
+          name: Install xcpretty
+          command: |
+            gem install xcpretty
+      - save_cache:
+          paths:
+            - ~/.gem
+          key: v1-gem-cache-{{ arch }}
+      - run:
+          name: Run UI tests with timing-based test splitting
+          command: |
+            set -o pipefail && \
+            xcodebuild test -workspace iosApp/iosApp.xcodeproj/project.xcworkspace \
+              -scheme iosApp \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              -derivedDataPath ./derivedData \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
+              -destination-timeout 60 \
+              IPHONEOS_DEPLOYMENT_TARGET=14.0 | \
+              circleci tests split --split-by=timings --timings-type=classname | \
+              xcpretty --report junit --output iosApp/iosApp/build/junit.xml
+      - store_test_results:
+          path: iosApp/iosApp/build/junit.xml
+      - store_artifacts:
+          path: iosApp/iosApp/build/junit.xml
+          destination: ui-test-results
+
+  # M4 Pro build - demonstrating performance gains
+  ios_build_m4pro:
+    executor: ios-m4pro-medium
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-gem-cache-{{ arch }}
+            - v1-gem-cache
+      - run:
+          name: Install xcpretty
+          command: |
+            gem install xcpretty
+      - save_cache:
+          paths:
+            - ~/.gem
+          key: v1-gem-cache-{{ arch }}
+      - run:
+          name: Build iOS app on M4 Pro
+          command: |
+            xcodebuild -workspace iosApp/iosApp.xcodeproj/project.xcworkspace \
+              -scheme iosApp \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              -derivedDataPath ./derivedData \
+              build
+      - run:
+          name: Run iOS tests
+          command: |
+            set -o pipefail && \
+            xcodebuild test -workspace iosApp/iosApp.xcodeproj/project.xcworkspace \
+              -scheme iosApp \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              -derivedDataPath ./derivedData \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
+              -destination-timeout 60 \
+              IPHONEOS_DEPLOYMENT_TARGET=14.0 | xcpretty --report junit --output iosApp/iosApp/build/junit.xml
+      - store_test_results:
+          path: iosApp/iosApp/build/junit.xml
+
+  # M2 Pro build - for performance comparison with M4 Pro
+  ios_build_m2pro:
+    executor: ios-m2pro-medium
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-gem-cache-{{ arch }}
+            - v1-gem-cache
+      - run:
+          name: Install xcpretty
+          command: |
+            gem install xcpretty
+      - save_cache:
+          paths:
+            - ~/.gem
+          key: v1-gem-cache-{{ arch }}
+      - run:
+          name: Build iOS app on M2 Pro
+          command: |
+            xcodebuild -workspace iosApp/iosApp.xcodeproj/project.xcworkspace \
+              -scheme iosApp \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              -derivedDataPath ./derivedData \
+              build
+      - run:
+          name: Run iOS tests
+          command: |
+            set -o pipefail && \
+            xcodebuild test -workspace iosApp/iosApp.xcodeproj/project.xcworkspace \
+              -scheme iosApp \
+              -sdk iphonesimulator \
+              -configuration Debug \
+              -derivedDataPath ./derivedData \
+              -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.2' \
+              -destination-timeout 60 \
+              IPHONEOS_DEPLOYMENT_TARGET=14.0 | xcpretty --report junit --output iosApp/iosApp/build/junit.xml
+      - store_test_results:
+          path: iosApp/iosApp/build/junit.xml
+
+  # Deploy using your own tools - no forced Fastlane or CircleCI-specific tooling required
   deploy:
     parameters:
       environment:
@@ -199,6 +340,9 @@ jobs:
         type: enum
         enum: ["ios", "android"]
         default: "ios"
+      app_name:
+        type: string
+        default: "Compass"
     docker:
       - image: cimg/base:stable
     steps:
@@ -253,32 +397,60 @@ jobs:
           when: on_fail
 
 workflows:
+  # Compass demo workflow - showcasing M4 Pro performance, parallel testing, and multi-app support
   build_and_test:
     jobs:
       - shared_build:
           name: Shared Module Build
+      
       - android_build_and_test:
           name: Android Build and Test
           requires:
             - "Shared Module Build"
-      - ios_build_and_test:
-          name: iOS Build and Test
+      
+      # M4 vs M2 Pro comparison - run in parallel to show performance difference
+      - ios_build_m4pro:
+          name: iOS Build (M4 Pro)
           requires:
             - "Shared Module Build"
+      
+      - ios_build_m2pro:
+          name: iOS Build (M2 Pro)
+          requires:
+            - "Shared Module Build"
+      
+      # Parallel UI testing with 22 shards and intelligent test splitting
+      - ios_ui_tests_parallel:
+          name: iOS UI Tests (22 Parallel Shards)
+          requires:
+            - "iOS Build (M4 Pro)"
+      
+      # Multi-app deployment matrix - demonstrates support for multiple apps like Compass's 4-app architecture
       - deploy:
-          name: "Deploy << matrix.component_name >>"
+          name: "Deploy << matrix.app_name >> << matrix.deploy_type >>"
           matrix:
             parameters:
               environment: ["Mobile Apps"]
-              component_name: ["KMM-RSS-Reader-ios", "KMM-RSS-Reader-android"]
+              app_name: ["Compass", "Glide"]
+              component_name: ["Compass-ios", "Compass-android", "Glide-ios", "Glide-android"]
               deploy_type: ["ios", "android"]
             exclude:
-              - component_name: "KMM-RSS-Reader-ios"
+              - component_name: "Compass-ios"
                 deploy_type: "android"
-                environment: "Mobile Apps"
-              - component_name: "KMM-RSS-Reader-android"
+              - component_name: "Compass-android"
                 deploy_type: "ios"
-                environment: "Mobile Apps"
+              - component_name: "Compass-ios"
+                app_name: "Glide"
+              - component_name: "Compass-android"
+                app_name: "Glide"
+              - component_name: "Glide-ios"
+                deploy_type: "android"
+              - component_name: "Glide-android"
+                deploy_type: "ios"
+              - component_name: "Glide-ios"
+                app_name: "Compass"
+              - component_name: "Glide-android"
+                app_name: "Compass"
           requires:
             - "Android Build and Test"
-            - "iOS Build and Test"
+            - "iOS Build (M4 Pro)"
