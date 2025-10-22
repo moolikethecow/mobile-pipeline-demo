@@ -458,3 +458,4 @@ workflows:
           requires:
             - "Android Build and Test"
             - "iOS Build (M4 Pro)"
+            - "iOS UI Tests (22 Parallel Shards)"
